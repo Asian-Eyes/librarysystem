@@ -1,0 +1,6 @@
+db:
+  host: ep-falling-thunder-ab5zspkf-pooler.eu-west-2.aws.neon.tech
+  port: 5432
+  name: inventory
+  user: neondb_owner
+  password: 'npg_TIbCy4ewdxk8'
