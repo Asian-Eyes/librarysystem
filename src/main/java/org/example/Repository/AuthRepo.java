@@ -14,12 +14,12 @@ public class AuthRepo {
     public boolean signUp(String username, String email, String password, String role) {
         Transaction tx = null;
         try (Session session = DB.getSessionFactory().openSession()) {
-            Query<Long> check = session.createQuery(
-                    "SELECT COUNT(u) FROM UserModel u WHERE u.username = :username OR u.email = :email",
-                    Long.class);
+            Query<UserModel> check = session.createQuery(
+                    "FROM UserModel u WHERE u.username = :username OR u.email = :email",
+                    UserModel.class);
             check.setParameter("username", username);
             check.setParameter("email", email);
-            if (check.uniqueResult() > 0) {
+            if (!check.getResultList().isEmpty()) {
                 System.err.println("Username or email already exists.");
                 return false;
             }
