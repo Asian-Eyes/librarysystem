@@ -13,29 +13,31 @@ public class AuthRepo {
 
     public boolean signUp(String username, String email, String password, String role) {
         Transaction tx = null;
+
         try (Session session = DB.getSessionFactory().openSession()) {
-            Query<UserModel> check = session.createQuery(
-                    "FROM UserModel u WHERE u.username = :username OR u.email = :email",
-                    UserModel.class);
-            check.setParameter("username", username);
-            check.setParameter("email", email);
-            if (!check.getResultList().isEmpty()) {
-                System.err.println("Username or email already exists.");
-                return false;
-            }
+            tx = session.beginTransaction();
+
             UserModel user = new UserModel();
             user.setUsername(username);
             user.setEmail(email);
             user.setPasswordHash(BCrypt.hashpw(password, BCrypt.gensalt()));
             user.setRole(role);
             user.setCreatedAt(LocalDateTime.now());
-            tx = session.beginTransaction();
+
             session.persist(user);
+
             tx.commit();
             return true;
+
         } catch (Exception e) {
             if (tx != null) tx.rollback();
-            System.err.println("Sign up failed: " + e.getMessage());
+
+            if (e.getCause() instanceof org.hibernate.exception.ConstraintViolationException) {
+                System.err.println("Username or email already exists.");
+            } else {
+                System.err.println("Sign up failed: " + e.getMessage());
+            }
+
             return false;
         }
     }
