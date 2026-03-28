@@ -76,15 +76,20 @@ public class BookInventoryRepo {
 
     private boolean hasActiveBorrows(int bookId) {
         try (Session session = DB.getSessionFactory().openSession()) {
+
             String hql = """
-                    SELECT COUNT(bi) FROM BorrowItemsModel bi
-                    JOIN BorrowSlipsModel bs ON bi.borrowSlipId = bs.id
-                    WHERE bi.bookId = :bookId AND bs.returned = false
-                    """;
+            SELECT COUNT(bi)
+            FROM BorrowItemsModel bi
+            WHERE bi.book.id = :bookId
+            AND bi.borrowSlip.returned = false
+        """;
+
             Long count = session.createQuery(hql, Long.class)
                     .setParameter("bookId", bookId)
                     .uniqueResult();
+
             return count != null && count > 0;
+
         } catch (Exception e) {
             System.err.println("Could not verify active borrows: " + e.getMessage());
             return true;

@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import java.util.List;
 
 import java.time.LocalDateTime;
 
@@ -12,6 +13,7 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+
 public class BorrowSlipsModel {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -20,8 +22,9 @@ public class BorrowSlipsModel {
     @Column(name = "slip_no")
     private String slipNo;
 
-    @Column(name = "member_id")
-    private int memberId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "member_id", nullable = false)
+    private MemberModel member;
 
     @Column(name = "borrow_at")
     private LocalDateTime borrowAt;
@@ -31,4 +34,7 @@ public class BorrowSlipsModel {
 
     @Column(name = "status")
     private String status;
+
+    @OneToMany(mappedBy = "borrowSlip", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<BorrowItemsModel> items;
 }

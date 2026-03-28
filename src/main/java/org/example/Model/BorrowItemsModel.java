@@ -10,6 +10,7 @@ import lombok.AllArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+
 public class BorrowItemsModel {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -18,8 +19,13 @@ public class BorrowItemsModel {
     @Column(name = "slip_id")
     private int slipId;
 
-    @Column(name = "book_id")
-    private int bookId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "book_id", nullable = false)
+    private BooksModel book;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "borrow_slip_id", nullable = false)
+    private BorrowSlipsModel borrowSlip;
 
     @Column(name = "quantity")
     private int quantity;

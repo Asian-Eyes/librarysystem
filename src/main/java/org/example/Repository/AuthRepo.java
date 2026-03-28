@@ -4,7 +4,6 @@ import org.example.Model.UserModel;
 import org.example.util.DB;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
-import org.hibernate.query.Query;
 import org.mindrot.jbcrypt.BCrypt;
 
 import java.time.LocalDateTime;
@@ -15,6 +14,17 @@ public class AuthRepo {
         Transaction tx = null;
 
         try (Session session = DB.getSessionFactory().openSession()) {
+
+            if (existsByUsername(session, username)) {
+                System.err.println("Username already exists.");
+                return false;
+            }
+
+            if (existsByEmail(session, email)) {
+                System.err.println("Email already exists.");
+                return false;
+            }
+
             tx = session.beginTransaction();
 
             UserModel user = new UserModel();
@@ -31,32 +41,57 @@ public class AuthRepo {
 
         } catch (Exception e) {
             if (tx != null) tx.rollback();
-
-            if (e.getCause() instanceof org.hibernate.exception.ConstraintViolationException) {
-                System.err.println("Username or email already exists.");
-            } else {
-                System.err.println("Sign up failed: " + e.getMessage());
-            }
-
+            System.err.println("Sign up failed: " + e.getMessage());
             return false;
         }
     }
 
     public UserModel signIn(String usernameOrEmail, String password) {
         try (Session session = DB.getSessionFactory().openSession()) {
-            Query<UserModel> query = session.createQuery(
-                    "FROM UserModel u WHERE u.username = :input OR u.email = :input",
-                    UserModel.class);
-            query.setParameter("input", usernameOrEmail);
-            UserModel user = query.uniqueResult();
+
+            UserModel user = findByUsernameOrEmail(session, usernameOrEmail);
+
             if (user == null || !BCrypt.checkpw(password, user.getPasswordHash())) {
                 System.err.println("Invalid credentials.");
                 return null;
             }
+
             return user;
+
         } catch (Exception e) {
             System.err.println("Sign in failed: " + e.getMessage());
             return null;
         }
+    }
+
+    private UserModel findByUsernameOrEmail(Session session, String input) {
+
+        String hql = "FROM UserModel u WHERE u.username = :input";
+        UserModel user = session.createQuery(hql, UserModel.class)
+                .setParameter("input", input)
+                .uniqueResult();
+
+        if (user != null) return user;
+
+        hql = "FROM UserModel u WHERE u.email = :input";
+        return session.createQuery(hql, UserModel.class)
+                .setParameter("input", input)
+                .uniqueResult();
+    }
+
+    private boolean existsByUsername(Session session, String username) {
+        String hql = "SELECT COUNT(u) FROM UserModel u WHERE u.username = :username";
+        Long count = session.createQuery(hql, Long.class)
+                .setParameter("username", username)
+                .uniqueResult();
+        return count != null && count > 0;
+    }
+
+    private boolean existsByEmail(Session session, String email) {
+        String hql = "SELECT COUNT(u) FROM UserModel u WHERE u.email = :email";
+        Long count = session.createQuery(hql, Long.class)
+                .setParameter("email", email)
+                .uniqueResult();
+        return count != null && count > 0;
     }
 }
