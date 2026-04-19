@@ -1,97 +1,71 @@
 package org.example.Repository;
 
+import org.example.Model.QUserModel;
 import org.example.Model.UserModel;
 import org.example.util.DB;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
-import org.mindrot.jbcrypt.BCrypt;
 
-import java.time.LocalDateTime;
+import com.querydsl.jpa.impl.JPAQueryFactory;
 
 public class AuthRepo {
 
-    public boolean signUp(String username, String email, String password, String role) {
-        Transaction tx = null;
+   private static final QUserModel qUser = QUserModel.userModel;
 
-        try (Session session = DB.getSessionFactory().openSession()) {
+   public boolean createUser(UserModel user) {
+      Transaction tx = null;
 
-            if (existsByUsername(session, username)) {
-                System.err.println("Username already exists.");
-                return false;
-            }
+      try (Session session = DB.getSessionFactory().openSession()) {
+         tx = session.beginTransaction();
+         session.persist(user);
+         tx.commit();
+         return true;
+      } catch (Exception e) {
+         if (tx != null) {
+            tx.rollback();
+         }
+         System.err.println("Create user failed: " + e.getMessage());
+         return false;
+      }
+   }
 
-            if (existsByEmail(session, email)) {
-                System.err.println("Email already exists.");
-                return false;
-            }
+   public UserModel findByUsernameOrEmail(String input) {
+      try (Session session = DB.getSessionFactory().openSession()) {
+         return new JPAQueryFactory(session)
+               .selectFrom(qUser)
+               .where(qUser.username.eq(input).or(qUser.email.eq(input)))
+               .fetchOne();
+      } catch (Exception e) {
+         System.err.println("Find user failed: " + e.getMessage());
+         return null;
+      }
+   }
 
-            tx = session.beginTransaction();
+   public boolean existsByUsername(String username) {
+      try (Session session = DB.getSessionFactory().openSession()) {
+         Long count = new JPAQueryFactory(session)
+               .select(qUser.count())
+               .from(qUser)
+               .where(qUser.username.eq(username))
+               .fetchOne();
+         return count != null && count > 0;
+      } catch (Exception e) {
+         System.err.println("Username check failed: " + e.getMessage());
+         return false;
+      }
+   }
 
-            UserModel user = new UserModel();
-            user.setUsername(username);
-            user.setEmail(email);
-            user.setPasswordHash(BCrypt.hashpw(password, BCrypt.gensalt()));
-            user.setRole(role);
-            user.setCreatedAt(LocalDateTime.now());
-
-            session.persist(user);
-
-            tx.commit();
-            return true;
-
-        } catch (Exception e) {
-            if (tx != null) tx.rollback();
-            System.err.println("Sign up failed: " + e.getMessage());
-            return false;
-        }
-    }
-
-    public UserModel signIn(String usernameOrEmail, String password) {
-        try (Session session = DB.getSessionFactory().openSession()) {
-
-            UserModel user = findByUsernameOrEmail(session, usernameOrEmail);
-
-            if (user == null || !BCrypt.checkpw(password, user.getPasswordHash())) {
-                System.err.println("Invalid credentials.");
-                return null;
-            }
-
-            return user;
-
-        } catch (Exception e) {
-            System.err.println("Sign in failed: " + e.getMessage());
-            return null;
-        }
-    }
-
-    private UserModel findByUsernameOrEmail(Session session, String input) {
-
-        String hql = "FROM UserModel u WHERE u.username = :input";
-        UserModel user = session.createQuery(hql, UserModel.class)
-                .setParameter("input", input)
-                .uniqueResult();
-
-        if (user != null) return user;
-
-        hql = "FROM UserModel u WHERE u.email = :input";
-        return session.createQuery(hql, UserModel.class)
-                .setParameter("input", input)
-                .uniqueResult();
-    }
-
-    private boolean existsByUsername(Session session, String username) {
-        String hql = "SELECT COUNT(u) FROM UserModel u WHERE u.username = :username";
-        Long count = session.createQuery(hql, Long.class)
-                .setParameter("username", username)
-                .uniqueResult();
-        return count != null && count > 0;
-    }
-
-    private boolean existsByEmail(Session session, String email) {
-        String hql = "SELECT COUNT(u) FROM UserModel u WHERE u.email = :email";
-        Long count = session.createQuery(hql, Long.class)
-                .setParameter("email", email)
-                .uniqueResult();
-        return count != null && count > 0;
-    }
+   public boolean existsByEmail(String email) {
+      try (Session session = DB.getSessionFactory().openSession()) {
+         Long count = new JPAQueryFactory(session)
+               .select(qUser.count())
+               .from(qUser)
+               .where(qUser.email.eq(email))
+               .fetchOne();
+         return count != null && count > 0;
+      } catch (Exception e) {
+         System.err.println("Email check failed: " + e.getMessage());
+         return false;
+      }
+   }
 }

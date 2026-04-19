@@ -1,9 +1,17 @@
 package org.example.Model;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
 
 @Entity
 @Table(name = "borrow_items")
@@ -12,24 +20,24 @@ import lombok.AllArgsConstructor;
 @AllArgsConstructor
 
 public class BorrowItemsModel {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int id;
+   @Id
+   @GeneratedValue(strategy = GenerationType.IDENTITY)
+   private int id;
 
-    @Column(name = "slip_id")
-    private int slipId;
+   @Column(name = "slip_id")
+   private int slipId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "book_id", nullable = false)
-    private BooksModel book;
+   @ManyToOne(fetch = FetchType.LAZY)
+   @JoinColumn(name = "book_id", nullable = false)
+   private BooksModel book;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "borrow_slip_id", nullable = false)
-    private BorrowSlipsModel borrowSlip;
+   @ManyToOne(fetch = FetchType.LAZY)
+   @JoinColumn(name = "borrow_slip_id", nullable = false)
+   private BorrowSlipsModel borrowSlip;
 
-    @Column(name = "quantity")
-    private int quantity;
+   @Column(name = "quantity")
+   private int quantity;
 
-    @Column(name = "returned_qty")
-    private int returnedQty;
+   @Column(name = "returned_qty")
+   private int returnedQty;
 }
