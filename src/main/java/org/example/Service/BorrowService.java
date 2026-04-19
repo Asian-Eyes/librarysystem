@@ -59,21 +59,4 @@ public class BorrowService {
       cart.add(item);
       return true;
    }
-
-   public boolean confirmBorrow(int memberId) {
-      if (cart.isEmpty()) {
-         return false;
-      }
-
-      MemberModel member = memberRepo.getMemberById(memberId);
-      if (member == null || !"ACTIVE".equalsIgnoreCase(member.getStatus())) {
-         return false;
-      }
-
-      boolean success = borrowSlipRepo.createBorrowSlip(memberId, cart);
-      if (success) {
-         cart.clear();
-      }
-      return success;
-   }
 }

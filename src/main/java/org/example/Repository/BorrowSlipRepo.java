@@ -1,87 +1,104 @@
 package org.example.Repository;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.UUID;
-
 import org.example.Model.BooksModel;
 import org.example.Model.BorrowItemsModel;
 import org.example.Model.BorrowSlipsModel;
-import org.example.Model.MemberModel;
-import org.example.Model.QBorrowSlipsModel;
 import org.example.util.DB;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 
-import com.querydsl.jpa.impl.JPAQueryFactory;
+import java.util.List;
 
 public class BorrowSlipRepo {
 
-    private static final int DUE_DAYS = 14;
-    private static final QBorrowSlipsModel qBorrowSlip = QBorrowSlipsModel.borrowSlipsModel;
-
-    public long getActiveBorrowCount(int memberId) {
+    public List<BorrowSlipsModel> getActiveSlipsByMember(int memberId) {
         try (Session session = DB.getSessionFactory().openSession()) {
-            Long result = new JPAQueryFactory(session)
-                    .select(qBorrowSlip.count())
-                    .from(qBorrowSlip)
-                    .where(
-                            qBorrowSlip.member.id.eq(memberId),
-                            qBorrowSlip.status.ne("RETURNED")
-                    )
-                    .fetchOne();
-
-            return result != null ? result : 0L;
+            return session.createSelectionQuery(
+                            "FROM BorrowSlipsModel bs WHERE bs.member.id = :memberId AND bs.status = :status",
+                            BorrowSlipsModel.class)
+                    .setParameter("memberId", memberId)
+                    .setParameter("status", "ACTIVE")
+                    .getResultList();
         } catch (Exception e) {
-            return 0L;
+            System.err.println("Failed to fetch active slips: " + e.getMessage());
+            return List.of();
         }
     }
 
-    public boolean createBorrowSlip(int memberId, List<BorrowItemsModel> cartItems) {
+    public boolean returnItems(int slipId, int bookId, int returnQty) {
+        if (returnQty <= 0) {
+            System.err.println("Return quantity must be greater than 0.");
+            return false;
+        }
         Transaction tx = null;
-
         try (Session session = DB.getSessionFactory().openSession()) {
             tx = session.beginTransaction();
 
-            MemberModel managedMember = session.find(MemberModel.class, memberId);
-            if (managedMember == null) {
+            BorrowSlipsModel slip = session.find(BorrowSlipsModel.class, slipId);
+            if (slip == null) {
+                System.err.println("Borrow slip not found.");
+                tx.rollback();
+                return false;
+            }
+            if ("RETURNED".equalsIgnoreCase(slip.getStatus())) {
+                System.err.println("This slip is already fully returned.");
                 tx.rollback();
                 return false;
             }
 
-            BorrowSlipsModel slip = new BorrowSlipsModel();
-            slip.setSlipNo(UUID.randomUUID().toString());
-            slip.setMember(managedMember);
-            slip.setBorrowAt(LocalDateTime.now());
-            slip.setDueAt(LocalDateTime.now().plusDays(DUE_DAYS));
-            slip.setStatus("ACTIVE");
-            session.persist(slip);
-
-            for (BorrowItemsModel cartItem : cartItems) {
-                BooksModel managedBook = session.find(BooksModel.class, cartItem.getBook().getId());
-                if (managedBook == null || managedBook.getStock() < cartItem.getQuantity()) {
-                    tx.rollback();
-                    return false;
+            BorrowItemsModel targetItem = null;
+            for (BorrowItemsModel item : slip.getItems()) {
+                if (item.getBook().getId() == bookId) {
+                    targetItem = item;
+                    break;
                 }
+            }
+            if (targetItem == null) {
+                System.err.println("Book not found in this borrow slip.");
+                tx.rollback();
+                return false;
+            }
 
-                managedBook.setStock(managedBook.getStock() - cartItem.getQuantity());
-                session.merge(managedBook);
+            int remaining = targetItem.getQuantity() - targetItem.getReturnedQty();
+            if (returnQty > remaining) {
+                System.err.println("Return quantity exceeds borrowed amount. Remaining: " + remaining);
+                tx.rollback();
+                return false;
+            }
 
-                BorrowItemsModel borrowItem = new BorrowItemsModel();
-                borrowItem.setBook(managedBook);
-                borrowItem.setBorrowSlip(slip);
-                borrowItem.setQuantity(cartItem.getQuantity());
-                borrowItem.setReturnedQty(0);
-                session.persist(borrowItem);
+            targetItem.setReturnedQty(targetItem.getReturnedQty() + returnQty);
+            session.merge(targetItem);
+
+            BooksModel book = session.find(BooksModel.class, bookId);
+            book.setStock(book.getStock() + returnQty);
+            session.merge(book);
+
+            boolean allReturned = slip.getItems().stream()
+                    .allMatch(i -> i.getReturnedQty() >= i.getQuantity());
+            if (allReturned) {
+                slip.setStatus("RETURNED");
+                session.merge(slip);
             }
 
             tx.commit();
             return true;
         } catch (Exception e) {
-            if (tx != null) {
-                tx.rollback();
-            }
+            if (tx != null) tx.rollback();
+            System.err.println("Failed to process return: " + e.getMessage());
             return false;
+        }
+    }
+
+    public List<BorrowSlipsModel> getSlipsByStatus(String status) {
+        try (Session session = DB.getSessionFactory().openSession()) {
+            return session.createSelectionQuery(
+                            "FROM BorrowSlipsModel bs WHERE bs.status = :status",
+                            BorrowSlipsModel.class)
+                    .setParameter("status", status)
+                    .getResultList();
+        } catch (Exception e) {
+            System.err.println("Failed to fetch slips by status: " + e.getMessage());
+            return List.of();
         }
     }
 }

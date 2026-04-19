@@ -1,11 +1,10 @@
 package org.example;
 
 import javax.swing.SwingUtilities;
-
-import org.example.GUI.main.MainWindow;
+import org.example.GUI.AuthWindow;
 
 public class Main {
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(MainWindow::new);
+        SwingUtilities.invokeLater(AuthWindow::new);
     }
 }

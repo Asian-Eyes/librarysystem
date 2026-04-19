@@ -351,24 +351,5 @@ public class BorrowCartPanel extends JPanel {
                 message.toString(),
                 "Confirm Borrow",
                 JOptionPane.OK_CANCEL_OPTION);
-
-        if (result == JOptionPane.OK_OPTION) {
-            boolean success = borrowService.confirmBorrow(selectedMember.getId());
-            if (success) {
-                JOptionPane.showMessageDialog(this,
-                        "Borrow slip created successfully!",
-                        "Success",
-                        JOptionPane.INFORMATION_MESSAGE);
-
-                updateCartTable();
-                slipNoField.setText("SLIP-" + System.currentTimeMillis());
-                loadBooks();
-            } else {
-                JOptionPane.showMessageDialog(this,
-                        "Failed to create borrow slip. Check member status and stock.",
-                        "Error",
-                        JOptionPane.ERROR_MESSAGE);
-            }
-        }
     }
 }

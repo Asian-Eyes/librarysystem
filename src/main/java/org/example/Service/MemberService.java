@@ -50,10 +50,6 @@ public class MemberService {
         return memberRepo.getMemberById(id);
     }
 
-    public long getActiveBorrowCount(int memberId) {
-        return borrowSlipRepo.getActiveBorrowCount(memberId);
-    }
-
     public double getUnpaidFineTotal(int memberId) {
         return fineRepo.getUnpaidFineTotal(memberId);
     }
