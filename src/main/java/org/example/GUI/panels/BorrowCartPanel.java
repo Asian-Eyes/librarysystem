@@ -8,6 +8,7 @@ import java.awt.FlowLayout;
 import java.awt.Font;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.function.Consumer;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -29,6 +30,7 @@ import javax.swing.table.DefaultTableModel;
 
 import org.example.Model.BooksModel;
 import org.example.Model.BorrowItemsModel;
+import org.example.Model.BorrowSlipsModel;
 import org.example.Model.MemberModel;
 import org.example.Service.BookService;
 import org.example.Service.BorrowService;
@@ -50,7 +52,10 @@ public class BorrowCartPanel extends JPanel {
     private BorrowService borrowService;
     private MemberService memberService;
 
-    public BorrowCartPanel() {
+    private final Consumer<BorrowSlipsModel> onBorrowConfirmed;
+
+    public BorrowCartPanel(Consumer<BorrowSlipsModel> onBorrowConfirmed) {
+        this.onBorrowConfirmed = onBorrowConfirmed;
         bookService = new BookService();
         borrowService = new BorrowService();
         memberService = new MemberService();
@@ -77,7 +82,7 @@ public class BorrowCartPanel extends JPanel {
         memberComboBox.setRenderer(new DefaultListCellRenderer() {
             @Override
             public Component getListCellRendererComponent(JList<?> list, Object value,
-                    int index, boolean isSelected, boolean cellHasFocus) {
+                                                          int index, boolean isSelected, boolean cellHasFocus) {
                 super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
                 if (value instanceof MemberModel) {
                     MemberModel member = (MemberModel) value;
@@ -93,7 +98,7 @@ public class BorrowCartPanel extends JPanel {
         bookComboBox.setRenderer(new DefaultListCellRenderer() {
             @Override
             public Component getListCellRendererComponent(JList<?> list, Object value,
-                    int index, boolean isSelected, boolean cellHasFocus) {
+                                                          int index, boolean isSelected, boolean cellHasFocus) {
                 super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
                 if (value instanceof BooksModel) {
                     BooksModel book = (BooksModel) value;
@@ -116,9 +121,7 @@ public class BorrowCartPanel extends JPanel {
         String[] columnNames = { "Book Title", "ISBN", "Author", "Quantity" };
         tableModel = new DefaultTableModel(columnNames, 0) {
             @Override
-            public boolean isCellEditable(int row, int column) {
-                return false;
-            }
+            public boolean isCellEditable(int row, int column) { return false; }
         };
         cartTable = new JTable(tableModel);
         cartTable.setFont(new Font("Arial", Font.PLAIN, 14));
@@ -153,8 +156,7 @@ public class BorrowCartPanel extends JPanel {
         topPanel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createTitledBorder(
                         BorderFactory.createLineBorder(new Color(200, 200, 200)),
-                        "Create Borrow Slip",
-                        0, 0,
+                        "Create Borrow Slip", 0, 0,
                         new Font("Arial", Font.BOLD, 18)),
                 BorderFactory.createEmptyBorder(10, 10, 10, 10)));
 
@@ -189,8 +191,7 @@ public class BorrowCartPanel extends JPanel {
         centerPanel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createTitledBorder(
                         BorderFactory.createLineBorder(new Color(200, 200, 200)),
-                        "Borrow Items",
-                        0, 0,
+                        "Borrow Items", 0, 0,
                         new Font("Arial", Font.BOLD, 16)),
                 BorderFactory.createEmptyBorder(10, 10, 10, 10)));
 
@@ -228,14 +229,9 @@ public class BorrowCartPanel extends JPanel {
         try {
             var books = bookService.getAllBooks();
             bookComboBox.removeAllItems();
-            for (BooksModel book : books) {
-                bookComboBox.addItem(book);
-            }
+            for (BooksModel book : books) bookComboBox.addItem(book);
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(this,
-                    "Error loading books: " + e.getMessage(),
-                    "Error",
-                    JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Error loading books: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -243,14 +239,9 @@ public class BorrowCartPanel extends JPanel {
         try {
             var members = memberService.getAllMembers();
             memberComboBox.removeAllItems();
-            for (MemberModel member : members) {
-                memberComboBox.addItem(member);
-            }
+            for (MemberModel member : members) memberComboBox.addItem(member);
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(this,
-                    "Error loading members: " + e.getMessage(),
-                    "Error",
-                    JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Error loading members: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -259,10 +250,7 @@ public class BorrowCartPanel extends JPanel {
         int quantity = (Integer) quantitySpinner.getValue();
 
         if (selectedBook == null) {
-            JOptionPane.showMessageDialog(this,
-                    "Please select a book",
-                    "Error",
-                    JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Please select a book", "Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
@@ -271,27 +259,21 @@ public class BorrowCartPanel extends JPanel {
             updateCartTable();
             quantitySpinner.setValue(1);
         } else {
-            JOptionPane.showMessageDialog(this,
-                    "Failed to add to cart. Check stock availability.",
-                    "Error",
-                    JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Failed to add to cart. Check stock availability.", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
     private void updateCartTable() {
         tableModel.setRowCount(0);
         List<BorrowItemsModel> cart = borrowService.getCart();
-
         for (BorrowItemsModel item : cart) {
-            Object[] row = {
+            tableModel.addRow(new Object[]{
                     item.getBook().getTitle(),
                     item.getBook().getIsbn(),
                     item.getBook().getAuthor(),
                     item.getQuantity()
-            };
-            tableModel.addRow(row);
+            });
         }
-
         updateTotals();
     }
 
@@ -302,16 +284,8 @@ public class BorrowCartPanel extends JPanel {
     }
 
     private void clearCart() {
-        List<BorrowItemsModel> cart = borrowService.getCart();
-        if (cart.isEmpty()) {
-            return;
-        }
-
-        int confirm = JOptionPane.showConfirmDialog(this,
-                "Clear all items from cart?",
-                "Confirm",
-                JOptionPane.YES_NO_OPTION);
-
+        if (borrowService.getCart().isEmpty()) return;
+        int confirm = JOptionPane.showConfirmDialog(this, "Clear all items from cart?", "Confirm", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
             borrowService.clearCart();
             updateCartTable();
@@ -321,35 +295,34 @@ public class BorrowCartPanel extends JPanel {
     private void confirmBorrow() {
         List<BorrowItemsModel> cart = borrowService.getCart();
         if (cart.isEmpty()) {
-            JOptionPane.showMessageDialog(this,
-                    "Your cart is empty!",
-                    "Borrow",
-                    JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Your cart is empty!", "Borrow", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
         MemberModel selectedMember = (MemberModel) memberComboBox.getSelectedItem();
         if (selectedMember == null) {
-            JOptionPane.showMessageDialog(this,
-                    "Please select a member",
-                    "Error",
-                    JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Please select a member", "Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
-        StringBuilder message = new StringBuilder("Borrow Summary:\n\n");
-        message.append("Member: ").append(selectedMember.getName()).append("\n\n");
+        StringBuilder message = new StringBuilder("Borrow Summary:\n\nMember: ")
+                .append(selectedMember.getName()).append("\n\n");
         for (BorrowItemsModel item : cart) {
-            message.append(String.format("%s x%d\n",
-                    item.getBook().getTitle(),
-                    item.getQuantity()));
+            message.append(String.format("%s x%d\n", item.getBook().getTitle(), item.getQuantity()));
         }
-        message.append(String.format("\nTotal Items: %d",
-                cart.stream().mapToInt(BorrowItemsModel::getQuantity).sum()));
+        message.append(String.format("\nTotal Items: %d", cart.stream().mapToInt(BorrowItemsModel::getQuantity).sum()));
 
-        int result = JOptionPane.showConfirmDialog(this,
-                message.toString(),
-                "Confirm Borrow",
-                JOptionPane.OK_CANCEL_OPTION);
+        int result = JOptionPane.showConfirmDialog(this, message.toString(), "Confirm Borrow", JOptionPane.OK_CANCEL_OPTION);
+        if (result != JOptionPane.OK_OPTION) return;
+
+        BorrowSlipsModel slip = borrowService.confirmBorrow(selectedMember.getId());
+        if (slip != null) {
+            onBorrowConfirmed.accept(slip);
+            updateCartTable();
+            slipNoField.setText("SLIP-" + System.currentTimeMillis());
+            JOptionPane.showMessageDialog(this, "Borrow confirmed! Slip: " + slip.getSlipNo());
+        } else {
+            JOptionPane.showMessageDialog(this, "Failed to confirm borrow.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
     }
 }
