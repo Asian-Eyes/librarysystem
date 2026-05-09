@@ -11,6 +11,24 @@ import java.util.List;
 
 public class BorrowSlipRepo {
 
+    public BorrowSlipsModel findBySlipNo(String slipNo) {
+        try (Session session = DB.getSessionFactory().openSession()) {
+            BorrowSlipsModel slip = session.createSelectionQuery(
+                            "SELECT bs FROM BorrowSlipsModel bs " +
+                                    "LEFT JOIN FETCH bs.member " +
+                                    "LEFT JOIN FETCH bs.items i " +
+                                    "LEFT JOIN FETCH i.book " +
+                                    "WHERE bs.slipNo = :slipNo",
+                            BorrowSlipsModel.class)
+                    .setParameter("slipNo", slipNo)
+                    .uniqueResult();
+            return slip;
+        } catch (Exception e) {
+            System.err.println("Failed to find slip: " + e.getMessage());
+            return null;
+        }
+    }
+
     public List<BorrowSlipsModel> getActiveSlipsByMember(int memberId) {
         try (Session session = DB.getSessionFactory().openSession()) {
             return session.createSelectionQuery(
@@ -26,22 +44,21 @@ public class BorrowSlipRepo {
     }
 
     public boolean returnItems(int slipId, int bookId, int returnQty) {
-        if (returnQty <= 0) {
-            System.err.println("Return quantity must be greater than 0.");
-            return false;
-        }
+        if (returnQty <= 0) return false;
         Transaction tx = null;
         try (Session session = DB.getSessionFactory().openSession()) {
             tx = session.beginTransaction();
 
-            BorrowSlipsModel slip = session.find(BorrowSlipsModel.class, slipId);
-            if (slip == null) {
-                System.err.println("Borrow slip not found.");
-                tx.rollback();
-                return false;
-            }
-            if ("RETURNED".equalsIgnoreCase(slip.getStatus())) {
-                System.err.println("This slip is already fully returned.");
+            BorrowSlipsModel slip = session.createSelectionQuery(
+                            "SELECT bs FROM BorrowSlipsModel bs " +
+                                    "LEFT JOIN FETCH bs.items i " +
+                                    "LEFT JOIN FETCH i.book " +
+                                    "WHERE bs.id = :id",
+                            BorrowSlipsModel.class)
+                    .setParameter("id", slipId)
+                    .uniqueResult();
+
+            if (slip == null || "RETURNED".equalsIgnoreCase(slip.getStatus())) {
                 tx.rollback();
                 return false;
             }
@@ -53,18 +70,10 @@ public class BorrowSlipRepo {
                     break;
                 }
             }
-            if (targetItem == null) {
-                System.err.println("Book not found in this borrow slip.");
-                tx.rollback();
-                return false;
-            }
+            if (targetItem == null) { tx.rollback(); return false; }
 
             int remaining = targetItem.getQuantity() - targetItem.getReturnedQty();
-            if (returnQty > remaining) {
-                System.err.println("Return quantity exceeds borrowed amount. Remaining: " + remaining);
-                tx.rollback();
-                return false;
-            }
+            if (returnQty > remaining) { tx.rollback(); return false; }
 
             targetItem.setReturnedQty(targetItem.getReturnedQty() + returnQty);
             session.merge(targetItem);
